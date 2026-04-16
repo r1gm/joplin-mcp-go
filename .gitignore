@@ -1,0 +1,12 @@
+# Binary
+joplin-mcp-go.exe
+joplin-mcp-go
+
+# Go
+go.sum
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.iml
