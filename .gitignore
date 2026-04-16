@@ -1,12 +1,30 @@
-# Binary
+# Compiled binaries
 joplin-mcp-go.exe
 joplin-mcp-go
+*.exe
+*.test
+*.out
 
-# Go
-go.sum
+# Go build artifacts
 vendor/
 
-# IDE
+# IDE and editor files
 .idea/
 .vscode/
 *.iml
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / local config
+.env
+.env.local
+*.log
+
+# NOTE: go.sum SHOULD be committed — it is Go's lockfile and ensures
+# reproducible builds for anyone who clones this repo.
