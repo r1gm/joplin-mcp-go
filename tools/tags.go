@@ -13,53 +13,53 @@ import (
 // ---- Input types ----
 
 type ListTagsInput struct {
-	Fields string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return (default: id, title, updated_time)"`
+	Fields string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return. Default: id title updated_time."`
 }
 
 type ResolveTagInput struct {
-	Name string `json:"name" jsonschema:"required,description=Tag title. Returns {id, title} or an error listing candidates if ambiguous (rare)."`
+	Name string `json:"name" jsonschema:"Tag title. Returns id and title; or an error listing candidates if ambiguous (rare)."`
 }
 
 type GetTagNotesInput struct {
-	TagID     string `json:"tag_id,omitempty" jsonschema:"description=The 32-hex-character tag ID. Takes precedence over tag_name."`
-	TagName   string `json:"tag_name,omitempty" jsonschema:"description=Tag title as alternative to tag_id"`
-	Task      string `json:"task,omitempty" jsonschema:"description=Filter by type: 'todo' for todos only, 'note' for regular notes only. Empty for both."`
-	Completed *bool  `json:"completed,omitempty" jsonschema:"description=Filter todos by completion: true=completed only, false=uncompleted only. Only relevant when task=todo."`
-	Fields    string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return (default: id, parent_id, title, is_todo, todo_completed, updated_time)"`
-	Limit     int    `json:"limit,omitempty" jsonschema:"description=Max results per page (1-100, default 20),minimum=1,maximum=100"`
-	Page      int    `json:"page,omitempty" jsonschema:"description=Page number starting at 1 (default 1),minimum=1"`
-	OrderBy   string `json:"order_by,omitempty" jsonschema:"description=Sort field: title, created_time, or updated_time (default: updated_time)"`
-	OrderDir  string `json:"order_dir,omitempty" jsonschema:"description=Sort direction: ASC or DESC"`
+	TagID     string `json:"tag_id,omitempty" jsonschema:"The 32-hex-character tag ID. Takes precedence over tag_name."`
+	TagName   string `json:"tag_name,omitempty" jsonschema:"Tag title as alternative to tag_id"`
+	Task      string `json:"task,omitempty" jsonschema:"Filter by type: 'todo' for todos only / 'note' for regular notes only / empty for both."`
+	Completed *bool  `json:"completed,omitempty" jsonschema:"Filter todos by completion: true=completed only / false=uncompleted only. Only relevant when task=todo."`
+	Fields    string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return. Default: id parent_id title is_todo todo_completed updated_time."`
+	Limit     int    `json:"limit,omitempty" jsonschema:"Max results per page (1-100; default 20)"`
+	Page      int    `json:"page,omitempty" jsonschema:"Page number starting at 1 (default 1)"`
+	OrderBy   string `json:"order_by,omitempty" jsonschema:"Sort field: title / created_time / updated_time. Default updated_time."`
+	OrderDir  string `json:"order_dir,omitempty" jsonschema:"Sort direction: ASC or DESC"`
 }
 
 type CreateTagInput struct {
-	Title string `json:"title" jsonschema:"required,description=Tag title. Joplin normalizes tag titles to lowercase."`
+	Title string `json:"title" jsonschema:"Tag title. Joplin normalizes tag titles to lowercase."`
 }
 
 type TagNoteInput struct {
-	NoteID  string `json:"note_id" jsonschema:"required,description=The 32-hex-character note ID to tag"`
-	TagID   string `json:"tag_id,omitempty" jsonschema:"description=The tag ID to add. Takes precedence over tag_name."`
-	TagName string `json:"tag_name,omitempty" jsonschema:"description=Tag title as alternative to tag_id. Must already exist — use create_tag first if needed."`
+	NoteID  string `json:"note_id" jsonschema:"The 32-hex-character note ID to tag"`
+	TagID   string `json:"tag_id,omitempty" jsonschema:"The tag ID to add. Takes precedence over tag_name."`
+	TagName string `json:"tag_name,omitempty" jsonschema:"Tag title as alternative to tag_id. Must already exist; use create_tag first if needed."`
 }
 
 type UntagNoteInput struct {
-	NoteID  string `json:"note_id" jsonschema:"required,description=The 32-hex-character note ID"`
-	TagID   string `json:"tag_id,omitempty" jsonschema:"description=The tag ID to remove. Takes precedence over tag_name."`
-	TagName string `json:"tag_name,omitempty" jsonschema:"description=Tag title as alternative to tag_id"`
+	NoteID  string `json:"note_id" jsonschema:"The 32-hex-character note ID"`
+	TagID   string `json:"tag_id,omitempty" jsonschema:"The tag ID to remove. Takes precedence over tag_name."`
+	TagName string `json:"tag_name,omitempty" jsonschema:"Tag title as alternative to tag_id"`
 }
 
 type DeleteTagInput struct {
-	ID      string `json:"id,omitempty" jsonschema:"description=The tag ID to delete. Takes precedence over tag_name."`
-	TagName string `json:"tag_name,omitempty" jsonschema:"description=Tag title as alternative to ID"`
+	ID      string `json:"id,omitempty" jsonschema:"The tag ID to delete. Takes precedence over tag_name."`
+	TagName string `json:"tag_name,omitempty" jsonschema:"Tag title as alternative to ID"`
 }
 
-// ---- Handlers ----
+// ---- Handlers (unchanged) ----
 
 func registerTagTools(server *mcp.Server, client *joplin.Client) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_tags",
-		Description: "List all tags in the Joplin instance. Returns tag id, title, and updated_time for each.",
+		Description: "List all tags in the Joplin instance. Returns tag id / title / updated_time for each.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListTagsInput) (*mcp.CallToolResult, TextResult, error) {
 		p := url.Values{}
 		if input.Fields != "" {
@@ -88,7 +88,7 @@ func registerTagTools(server *mcp.Server, client *joplin.Client) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_tag_notes",
-		Description: "List all notes that carry a specific tag, paginated. Target by tag_id (32-hex) or " +
+		Description: "List all notes that carry a specific tag paginated. Target by tag_id (32-hex) or " +
 			"tag_name (title). Use task and completed filters to narrow to todos or by completion.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetTagNotesInput) (*mcp.CallToolResult, TextResult, error) {
 		tagID, err := resolveTagArg(client, input.TagID, input.TagName)
@@ -105,7 +105,7 @@ func registerTagTools(server *mcp.Server, client *joplin.Client) {
 			p.Set("fields", "id,parent_id,title,is_todo,todo_completed,updated_time")
 		}
 		limit := input.Limit
-		if limit <= 0 {
+		if limit <= 0 || limit > 100 {
 			limit = 20
 		}
 		p.Set("limit", fmt.Sprintf("%d", limit))
@@ -121,7 +121,6 @@ func registerTagTools(server *mcp.Server, client *joplin.Client) {
 
 		var result []byte
 		if filter != "" {
-			// Use /search with tag: operator. Need the tag's title.
 			titleParams := url.Values{}
 			titleParams.Set("fields", "title")
 			titleBody, err := client.GetTag(tagID, titleParams)
@@ -180,8 +179,8 @@ func registerTagTools(server *mcp.Server, client *joplin.Client) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
-		Name: "untag_note",
-		Description: "Remove a tag from a note. The tag itself is not deleted, only the association.",
+		Name:        "untag_note",
+		Description: "Remove a tag from a note. The tag itself is not deleted; only the association is removed.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UntagNoteInput) (*mcp.CallToolResult, TextResult, error) {
 		tagID, err := resolveTagArg(client, input.TagID, input.TagName)
 		if err != nil {

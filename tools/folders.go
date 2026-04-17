@@ -13,50 +13,52 @@ import (
 // ---- Input types ----
 
 type ListNotebooksInput struct {
-	Fields string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return (default: id, title, parent_id)"`
+	Fields string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return. Default: id title parent_id."`
 }
 
 type ResolveNotebookInput struct {
-	Name string `json:"name" jsonschema:"required,description=Notebook title or path (e.g. 'Work' or 'Projects/Work'). Returns {id, title, path} or an error listing all candidates if ambiguous."`
+	Name string `json:"name" jsonschema:"Notebook title or path (e.g. 'Work' or 'Projects/Work'). Returns id / title / path; or an error listing all candidates if ambiguous."`
 }
 
 type GetNotebookInput struct {
-	ID           string `json:"id,omitempty" jsonschema:"description=The 32-hex-character notebook ID. Takes precedence over notebook_name."`
-	NotebookName string `json:"notebook_name,omitempty" jsonschema:"description=Notebook title or path as alternative to ID (e.g. 'Projects/Work')"`
-	Fields       string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return"`
+	ID           string `json:"id,omitempty" jsonschema:"The 32-hex-character notebook ID. Takes precedence over notebook_name."`
+	NotebookName string `json:"notebook_name,omitempty" jsonschema:"Notebook title or path as alternative to ID (e.g. 'Projects/Work')"`
+	Fields       string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return"`
 }
 
 type GetNotebookNotesInput struct {
-	NotebookID   string `json:"notebook_id,omitempty" jsonschema:"description=The 32-hex-character notebook ID. Takes precedence over notebook_name."`
-	NotebookName string `json:"notebook_name,omitempty" jsonschema:"description=Notebook title or path as alternative to ID (e.g. 'Projects/Work'). Ambiguous names return an error with all candidates."`
-	Task         string `json:"task,omitempty" jsonschema:"description=Filter by type: 'todo' for todos only, 'note' for regular notes only. Empty for both."`
-	Completed    *bool  `json:"completed,omitempty" jsonschema:"description=Filter todos by completion: true=completed only, false=uncompleted only. Only relevant when task=todo."`
-	Fields       string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return (default: id, parent_id, title, is_todo, todo_completed, updated_time)"`
-	Limit        int    `json:"limit,omitempty" jsonschema:"description=Max results per page (1-100, default 20),minimum=1,maximum=100"`
-	Page         int    `json:"page,omitempty" jsonschema:"description=Page number starting at 1 (default 1),minimum=1"`
-	OrderBy      string `json:"order_by,omitempty" jsonschema:"description=Sort field: title, created_time, or updated_time (default: updated_time)"`
-	OrderDir     string `json:"order_dir,omitempty" jsonschema:"description=Sort direction: ASC or DESC"`
+	NotebookID   string `json:"notebook_id,omitempty" jsonschema:"The 32-hex-character notebook ID. Takes precedence over notebook_name."`
+	NotebookName string `json:"notebook_name,omitempty" jsonschema:"Notebook title or path as alternative to ID (e.g. 'Projects/Work'). Ambiguous names return an error with all candidates."`
+	Task         string `json:"task,omitempty" jsonschema:"Filter by type: 'todo' for todos only / 'note' for regular notes only / empty for both."`
+	Completed    *bool  `json:"completed,omitempty" jsonschema:"Filter todos by completion: true=completed only / false=uncompleted only. Only relevant when task=todo."`
+	Fields       string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return. Default: id parent_id title is_todo todo_completed updated_time."`
+	Limit        int    `json:"limit,omitempty" jsonschema:"Max results per page (1-100; default 20)"`
+	Page         int    `json:"page,omitempty" jsonschema:"Page number starting at 1 (default 1)"`
+	OrderBy      string `json:"order_by,omitempty" jsonschema:"Sort field: title / created_time / updated_time. Default updated_time."`
+	OrderDir     string `json:"order_dir,omitempty" jsonschema:"Sort direction: ASC or DESC"`
 }
 
 type CreateNotebookInput struct {
-	Title              string `json:"title" jsonschema:"required,description=The notebook title"`
-	ParentID           string `json:"parent_id,omitempty" jsonschema:"description=Parent notebook ID. Takes precedence over parent_notebook_name. Omit both for a top-level notebook."`
-	ParentNotebookName string `json:"parent_notebook_name,omitempty" jsonschema:"description=Parent notebook title or path (e.g. 'Projects') for creating a sub-notebook"`
+	Title              string `json:"title" jsonschema:"The notebook title"`
+	ParentID           string `json:"parent_id,omitempty" jsonschema:"Parent notebook ID. Takes precedence over parent_notebook_name. Omit both for a top-level notebook."`
+	ParentNotebookName string `json:"parent_notebook_name,omitempty" jsonschema:"Parent notebook title or path (e.g. 'Projects') for creating a sub-notebook"`
 }
 
 type UpdateNotebookInput struct {
-	ID                 string `json:"id,omitempty" jsonschema:"description=The notebook ID to update. Takes precedence over notebook_name."`
-	NotebookName       string `json:"notebook_name,omitempty" jsonschema:"description=Notebook title or path as alternative to ID"`
-	Title              string `json:"title,omitempty" jsonschema:"description=New title"`
-	ParentID           string `json:"parent_id,omitempty" jsonschema:"description=Move under this parent notebook ID. Takes precedence over parent_notebook_name."`
-	ParentNotebookName string `json:"parent_notebook_name,omitempty" jsonschema:"description=Move under this parent notebook by title or path"`
+	ID                 string `json:"id,omitempty" jsonschema:"The notebook ID to update. Takes precedence over notebook_name."`
+	NotebookName       string `json:"notebook_name,omitempty" jsonschema:"Notebook title or path as alternative to ID"`
+	Title              string `json:"title,omitempty" jsonschema:"New title"`
+	ParentID           string `json:"parent_id,omitempty" jsonschema:"Move under this parent notebook ID. Takes precedence over parent_notebook_name."`
+	ParentNotebookName string `json:"parent_notebook_name,omitempty" jsonschema:"Move under this parent notebook by title or path"`
 }
 
 type DeleteNotebookInput struct {
-	ID           string `json:"id,omitempty" jsonschema:"description=The notebook ID to delete. Takes precedence over notebook_name."`
-	NotebookName string `json:"notebook_name,omitempty" jsonschema:"description=Notebook title or path as alternative to ID"`
-	Permanent    bool   `json:"permanent,omitempty" jsonschema:"description=If true, permanently delete including all contained notes. Default false (moves to trash, recoverable from Joplin)."`
+	ID           string `json:"id,omitempty" jsonschema:"The notebook ID to delete. Takes precedence over notebook_name."`
+	NotebookName string `json:"notebook_name,omitempty" jsonschema:"Notebook title or path as alternative to ID"`
+	Permanent    bool   `json:"permanent,omitempty" jsonschema:"If true permanently delete including all contained notes. Default false (moves to trash; recoverable from Joplin)."`
 }
+
+// ---- Handlers ----
 
 func registerFolderTools(server *mcp.Server, client *joplin.Client) {
 
@@ -82,7 +84,7 @@ func registerFolderTools(server *mcp.Server, client *joplin.Client) {
 		Description: "Resolve a notebook title or path to its ID and full path. Use this to check " +
 			"whether a name is unique before calling tools that accept notebook_name. Returns an error " +
 			"listing all candidates with their IDs and paths if the name is ambiguous. Input can be a " +
-			"bare title ('Work'), a slash-separated path ('Projects/Work'), or a 32-hex ID (round-trip " +
+			"bare title ('Work') or a slash-separated path ('Projects/Work') or a 32-hex ID (round-trip " +
 			"verification).",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ResolveNotebookInput) (*mcp.CallToolResult, TextResult, error) {
 		ref, err := client.ResolveNotebook(input.Name)
@@ -114,7 +116,7 @@ func registerFolderTools(server *mcp.Server, client *joplin.Client) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_notebook_notes",
-		Description: "List all notes in a specific notebook, paginated. Target by notebook_id (32-hex) or " +
+		Description: "List all notes in a specific notebook paginated. Target by notebook_id (32-hex) or " +
 			"notebook_name (title or path like 'Projects/Work'). If notebook_name is ambiguous the error " +
 			"lists all candidates. Use task and completed filters to narrow to todos or by completion.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetNotebookNotesInput) (*mcp.CallToolResult, TextResult, error) {
@@ -123,8 +125,6 @@ func registerFolderTools(server *mcp.Server, client *joplin.Client) {
 			return nil, TextResult{}, err
 		}
 
-		// If filtering is requested, use /search with notebook: operator.
-		// Otherwise use the direct /folders/:id/notes endpoint.
 		filter := todoFilter(input.Task, input.Completed)
 
 		params := url.Values{}
@@ -134,7 +134,7 @@ func registerFolderTools(server *mcp.Server, client *joplin.Client) {
 			params.Set("fields", "id,parent_id,title,is_todo,todo_completed,updated_time")
 		}
 		limit := input.Limit
-		if limit <= 0 {
+		if limit <= 0 || limit > 100 {
 			limit = 20
 		}
 		params.Set("limit", fmt.Sprintf("%d", limit))
@@ -150,8 +150,6 @@ func registerFolderTools(server *mcp.Server, client *joplin.Client) {
 
 		var result []byte
 		if filter != "" {
-			// Use the notebook's title with the notebook: search operator.
-			// Fetch the notebook title to build the query.
 			titleParams := url.Values{}
 			titleParams.Set("fields", "title")
 			titleBody, err := client.GetFolder(id, titleParams)
@@ -182,7 +180,7 @@ func registerFolderTools(server *mcp.Server, client *joplin.Client) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "create_notebook",
-		Description: "Create a new notebook. Omit parent to create at the top level. For a sub-notebook, " +
+		Description: "Create a new notebook. Omit parent to create at the top level. For a sub-notebook " +
 			"pass either parent_id or parent_notebook_name.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateNotebookInput) (*mcp.CallToolResult, TextResult, error) {
 		data := map[string]interface{}{"title": input.Title}

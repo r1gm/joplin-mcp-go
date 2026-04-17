@@ -11,62 +11,72 @@ import (
 )
 
 // ---- Input types ----
+//
+// jsonschema struct tag rules for go-sdk (google/jsonschema-go):
+//   - The entire tag value becomes the property description. Nothing else.
+//   - No directives are supported: no "required" / no "minimum=N" / no "description=".
+//   - Tags must not start with "WORD=" (reserved for future use; panics).
+//   - Required fields are determined by the json tag: no "omitempty" = required.
+//   - Constraints (min/max) must be enforced in handler code.
+//   - Descriptions must not contain commas (the library may split on them).
 
 type FindNotesInput struct {
-	Query     string `json:"query" jsonschema:"description=Search text or '*' for all notes. Supports Joplin syntax: exact phrase (\"foo bar\"), title:word, body:word, -exclude, word1 OR word2, tag:name, notebook:\"Name\"."`
-	Task      string `json:"task,omitempty" jsonschema:"description=Filter by item type: 'todo' for todos only, 'note' for regular notes only. Empty for both."`
-	Completed *bool  `json:"completed,omitempty" jsonschema:"description=Filter todos by completion: true=completed only, false=uncompleted only. Omit to include both. Only relevant when task=todo."`
-	Limit     int    `json:"limit,omitempty" jsonschema:"description=Max results per page (1-100, default 20),minimum=1,maximum=100"`
-	Page      int    `json:"page,omitempty" jsonschema:"description=Page number for pagination starting at 1 (default 1),minimum=1"`
-	OrderBy   string `json:"order_by,omitempty" jsonschema:"description=Sort field: title, created_time, or updated_time (default: updated_time for '*', relevance for text queries)"`
-	OrderDir  string `json:"order_dir,omitempty" jsonschema:"description=Sort direction: ASC or DESC"`
-	Fields    string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return (default: id, parent_id, title, is_todo, todo_completed, updated_time)"`
+	Query     string `json:"query" jsonschema:"Search text or '*' for all notes. Supports Joplin query syntax; see the tool description for operators."`
+	Task      string `json:"task,omitempty" jsonschema:"Filter by item type: 'todo' for todos only / 'note' for regular notes only / empty for both."`
+	Completed *bool  `json:"completed,omitempty" jsonschema:"Filter todos by completion: true=completed only / false=uncompleted only. Omit to include both. Only relevant when task=todo."`
+	Limit     int    `json:"limit,omitempty" jsonschema:"Max results per page (1-100; default 20)"`
+	Page      int    `json:"page,omitempty" jsonschema:"Page number for pagination starting at 1 (default 1)"`
+	OrderBy   string `json:"order_by,omitempty" jsonschema:"Sort field: title / created_time / updated_time. Default updated_time for '*' / relevance for text queries."`
+	OrderDir  string `json:"order_dir,omitempty" jsonschema:"Sort direction: ASC or DESC"`
+	Fields    string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return. Default: id parent_id title is_todo todo_completed updated_time."`
 }
 
 type GetNoteInput struct {
-	ID     string `json:"id" jsonschema:"required,description=The 32-hex-character note ID"`
-	Fields string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return. Omit 'body' to get just metadata. Available fields: id, parent_id, title, body, is_todo, todo_due, todo_completed, created_time, updated_time, source_url, author, latitude, longitude, altitude, markup_language. Default includes body, which may be large."`
+	ID     string `json:"id" jsonschema:"The 32-hex-character note ID"`
+	Fields string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return. Omit body to get just metadata. Available: id / parent_id / title / body / is_todo / todo_due / todo_completed / created_time / updated_time / source_url / author / latitude / longitude / altitude / markup_language. Default includes body which may be large."`
 }
 
 type CreateNoteInput struct {
-	Title         string `json:"title" jsonschema:"required,description=The note title"`
-	Body          string `json:"body,omitempty" jsonschema:"description=The note body in Markdown"`
-	ParentID      string `json:"parent_id,omitempty" jsonschema:"description=ID of the notebook to create the note in. Takes precedence over notebook_name. If neither is set, note goes to the default notebook."`
-	NotebookName  string `json:"notebook_name,omitempty" jsonschema:"description=Notebook title or path (e.g. 'Work' or 'Projects/Work'). If ambiguous an error lists all candidates with their IDs."`
-	IsTodo        int    `json:"is_todo,omitempty" jsonschema:"description=Set to 1 to create as a todo item (checkbox). Default 0 (regular note)."`
-	TodoDue       int64  `json:"todo_due,omitempty" jsonschema:"description=Todo due date as Unix timestamp in milliseconds. Triggers an alarm on that date. Only relevant when is_todo=1."`
+	Title        string `json:"title" jsonschema:"The note title"`
+	Body         string `json:"body,omitempty" jsonschema:"The note body in Markdown"`
+	ParentID     string `json:"parent_id,omitempty" jsonschema:"ID of the notebook to create the note in. Takes precedence over notebook_name. If neither is set the note goes to the default notebook."`
+	NotebookName string `json:"notebook_name,omitempty" jsonschema:"Notebook title or path (e.g. 'Work' or 'Projects/Work'). If ambiguous an error lists all candidates with their IDs."`
+	IsTodo       int    `json:"is_todo,omitempty" jsonschema:"Set to 1 to create as a todo item (checkbox). Default 0 (regular note)."`
+	TodoDue      int64  `json:"todo_due,omitempty" jsonschema:"Todo due date as Unix timestamp in milliseconds. Only relevant when is_todo=1."`
 }
 
 type UpdateNoteInput struct {
-	ID            string `json:"id" jsonschema:"required,description=The 32-hex-character note ID to update"`
-	Title         string `json:"title,omitempty" jsonschema:"description=New title"`
-	Body          string `json:"body,omitempty" jsonschema:"description=New body in Markdown. Replaces the entire body."`
-	ParentID      string `json:"parent_id,omitempty" jsonschema:"description=Move note to this notebook ID. Takes precedence over notebook_name."`
-	NotebookName  string `json:"notebook_name,omitempty" jsonschema:"description=Move note to this notebook by title or path (e.g. 'Projects/Work')"`
-	IsTodo        *int   `json:"is_todo,omitempty" jsonschema:"description=1 to convert to a todo, 0 to convert back to a regular note"`
-	TodoDue       *int64 `json:"todo_due,omitempty" jsonschema:"description=Due date as Unix timestamp in ms. Use 0 to clear."`
-	TodoCompleted *int64 `json:"todo_completed,omitempty" jsonschema:"description=Completion timestamp in ms (e.g. time.Now().UnixMilli()). Use 0 to mark uncompleted."`
+	ID            string `json:"id" jsonschema:"The 32-hex-character note ID to update"`
+	Title         string `json:"title,omitempty" jsonschema:"New title"`
+	Body          string `json:"body,omitempty" jsonschema:"New body in Markdown. Replaces the entire body."`
+	ParentID      string `json:"parent_id,omitempty" jsonschema:"Move note to this notebook ID. Takes precedence over notebook_name."`
+	NotebookName  string `json:"notebook_name,omitempty" jsonschema:"Move note to this notebook by title or path (e.g. 'Projects/Work')"`
+	IsTodo        *int   `json:"is_todo,omitempty" jsonschema:"1 to convert to a todo / 0 to convert back to a regular note"`
+	TodoDue       *int64 `json:"todo_due,omitempty" jsonschema:"Due date as Unix timestamp in ms. Use 0 to clear."`
+	TodoCompleted *int64 `json:"todo_completed,omitempty" jsonschema:"Completion timestamp in ms. Use 0 to mark uncompleted."`
 }
 
 type DeleteNoteInput struct {
-	ID        string `json:"id" jsonschema:"required,description=The 32-hex-character note ID to delete"`
-	Permanent bool   `json:"permanent,omitempty" jsonschema:"description=If true, permanently delete. Default false (moves to trash, recoverable from Joplin)."`
+	ID        string `json:"id" jsonschema:"The 32-hex-character note ID to delete"`
+	Permanent bool   `json:"permanent,omitempty" jsonschema:"If true permanently delete. Default false (moves to trash; recoverable from Joplin)."`
 }
 
 type GetTagsByNoteInput struct {
-	NoteID string `json:"note_id" jsonschema:"required,description=The 32-hex-character note ID"`
-	Fields string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return (default: id, title)"`
+	NoteID string `json:"note_id" jsonschema:"The 32-hex-character note ID"`
+	Fields string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return. Default: id title."`
 }
 
-// ---- Handlers ----
+// ---- Handlers (unchanged) ----
 
 func registerNoteTools(server *mcp.Server, client *joplin.Client) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "find_notes",
-		Description: "Full-text search for notes, or pass query='*' to list all notes. " +
+		Description: "Full-text search for notes; pass query='*' to list all notes. " +
+			"Supports Joplin query syntax: \"exact phrase\" / title:word / body:word / -exclude / " +
+			"word1 OR word2 / tag:name / notebook:\"Name\" / type:todo / iscompleted:0 or 1. " +
 			"Use task and completed filters to narrow results to todos or by completion state. " +
-			"For filtering by notebook, prefer get_notebook_notes; by tag, prefer get_tag_notes. " +
+			"For filtering by notebook prefer get_notebook_notes; by tag prefer get_tag_notes. " +
 			"Returns a paginated list with has_more flag.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input FindNotesInput) (*mcp.CallToolResult, TextResult, error) {
 		query := input.Query
@@ -88,7 +98,7 @@ func registerNoteTools(server *mcp.Server, client *joplin.Client) {
 			params.Set("fields", "id,parent_id,title,is_todo,todo_completed,updated_time")
 		}
 		limit := input.Limit
-		if limit <= 0 {
+		if limit <= 0 || limit > 100 {
 			limit = 20
 		}
 		params.Set("limit", fmt.Sprintf("%d", limit))
@@ -110,10 +120,11 @@ func registerNoteTools(server *mcp.Server, client *joplin.Client) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "get_note",
-		Description: "Get a single note by ID. The default fields include the full body, which may be " +
-			"large — pass fields='id,title,parent_id,updated_time' (omitting body) to get metadata only. " +
-			"Available fields: id, parent_id, title, body, is_todo, todo_due, todo_completed, " +
-			"created_time, updated_time, source_url, author, latitude, longitude, altitude, markup_language.",
+		Description: "Get a single note by ID. The default fields include the full body which may be " +
+			"large; pass fields='id,title,parent_id,updated_time' (omitting body) to get metadata only. " +
+			"Available fields include id / parent_id / title / body / is_todo / todo_due / " +
+			"todo_completed / created_time / updated_time / source_url / author / latitude / " +
+			"longitude / altitude / markup_language.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetNoteInput) (*mcp.CallToolResult, TextResult, error) {
 		params := url.Values{}
 		if input.Fields != "" {
@@ -132,7 +143,7 @@ func registerNoteTools(server *mcp.Server, client *joplin.Client) {
 		Name: "create_note",
 		Description: "Create a new note with the given title and (optional) Markdown body. " +
 			"Target notebook with either parent_id (32-hex Joplin ID) or notebook_name " +
-			"(title or path like 'Projects/Work'). If notebook_name is ambiguous, the error response " +
+			"(title or path like 'Projects/Work'). If notebook_name is ambiguous the error response " +
 			"lists all candidate notebooks with their IDs so you can retry with parent_id. " +
 			"Set is_todo=1 to create as a checkbox todo. Returns the created note's id and title.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateNoteInput) (*mcp.CallToolResult, TextResult, error) {

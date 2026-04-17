@@ -11,16 +11,14 @@ import (
 )
 
 // SearchInput accepts a raw Joplin query string plus standard list-result options.
-// Use this when find_notes / get_notebook_notes / get_tag_notes don't fit, or when
-// you want to search across notebooks, tags, or use full Joplin query syntax directly.
 type SearchInput struct {
-	Query    string `json:"query" jsonschema:"required,description=Raw Joplin search query. Supports \"exact phrase\", title:word, body:word, -exclude, word1 OR word2, tag:name, notebook:\"Name\", type:todo, iscompleted:0. Use '*' to match everything."`
-	Type     string `json:"type,omitempty" jsonschema:"description=Limit to an item type: 'note' (default), 'folder' (notebooks), or 'tag'. For folder/tag lookup the search becomes a simple case-insensitive title match and supports * wildcards."`
-	Fields   string `json:"fields,omitempty" jsonschema:"description=Comma-separated fields to return"`
-	Limit    int    `json:"limit,omitempty" jsonschema:"description=Max results per page (1-100, default 20),minimum=1,maximum=100"`
-	Page     int    `json:"page,omitempty" jsonschema:"description=Page number starting at 1,minimum=1"`
-	OrderBy  string `json:"order_by,omitempty" jsonschema:"description=Sort field: title, created_time, or updated_time"`
-	OrderDir string `json:"order_dir,omitempty" jsonschema:"description=Sort direction: ASC or DESC"`
+	Query    string `json:"query" jsonschema:"Raw Joplin search query. See the tool description for supported operators. Use '*' to match everything."`
+	Type     string `json:"type,omitempty" jsonschema:"Limit to an item type: 'note' (default) / 'folder' (notebooks) / 'tag'. For folder or tag lookup the search becomes a simple case-insensitive title match and supports * wildcards."`
+	Fields   string `json:"fields,omitempty" jsonschema:"Comma-separated fields to return"`
+	Limit    int    `json:"limit,omitempty" jsonschema:"Max results per page (1-100; default 20)"`
+	Page     int    `json:"page,omitempty" jsonschema:"Page number starting at 1"`
+	OrderBy  string `json:"order_by,omitempty" jsonschema:"Sort field: title / created_time / updated_time"`
+	OrderDir string `json:"order_dir,omitempty" jsonschema:"Sort direction: ASC or DESC"`
 }
 
 // PingInput is intentionally empty — the ping tool takes no arguments.
@@ -31,10 +29,12 @@ func registerSearchTools(server *mcp.Server, client *joplin.Client) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "search",
 		Description: "General-purpose Joplin search. For simple note-text searches prefer find_notes. " +
-			"Use this when you need: (a) raw Joplin query syntax, (b) searching across notebooks/tags " +
-			"by title (set type='folder' or type='tag'), or (c) complex filters like " +
-			"'notebook:\"Work\" tag:urgent type:todo iscompleted:0'. When type is 'folder' or 'tag', " +
-			"Joplin does a case-insensitive title match (supports '*' wildcards).",
+			"Use this when you need (a) raw Joplin query syntax / (b) searching across notebooks or tags " +
+			"by title (set type='folder' or type='tag') / (c) complex filters like " +
+			"'notebook:\"Work\" tag:urgent type:todo iscompleted:0'. Supported operators: \"exact phrase\" / " +
+			"title:word / body:word / -exclude / word1 OR word2 / tag:name / notebook:\"Name\" / " +
+			"type:note / type:todo / iscompleted:0 or 1. When type is 'folder' or 'tag' Joplin does a " +
+			"case-insensitive title match (supports '*' wildcards).",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input SearchInput) (*mcp.CallToolResult, TextResult, error) {
 		p := url.Values{}
 		if input.Fields != "" {
@@ -46,7 +46,7 @@ func registerSearchTools(server *mcp.Server, client *joplin.Client) {
 			p.Set("type", input.Type)
 		}
 		limit := input.Limit
-		if limit <= 0 {
+		if limit <= 0 || limit > 100 {
 			limit = 20
 		}
 		p.Set("limit", fmt.Sprintf("%d", limit))
@@ -68,7 +68,7 @@ func registerSearchTools(server *mcp.Server, client *joplin.Client) {
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name: "ping",
-		Description: "Check connectivity to Joplin. Returns 'Joplin is running' on success, or a " +
+		Description: "Check connectivity to Joplin. Returns 'Joplin is running' on success or a " +
 			"clear error if the Web Clipper service is not reachable at the configured host and port. " +
 			"Use this for troubleshooting when other tools fail.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ PingInput) (*mcp.CallToolResult, TextResult, error) {
