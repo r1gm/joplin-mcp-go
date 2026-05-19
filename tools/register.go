@@ -20,6 +20,7 @@ type TextResult struct {
 func RegisterAll(server *mcp.Server, client *joplin.Client) {
 	registerNoteTools(server, client)
 	registerPatchTool(server, client)
+	registerGrepTool(server, client)
 	registerFolderTools(server, client)
 	registerTagTools(server, client)
 	registerSearchTools(server, client)

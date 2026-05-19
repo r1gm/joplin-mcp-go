@@ -6,7 +6,7 @@ Built as a reliable replacement for the Python-based Joplin MCP server, which su
 
 ## Features
 
-- **23 tools** covering notes, notebooks, tags, and search
+- **24 tools** covering notes, notebooks, tags, and search
 - **Single binary** — no runtime dependencies, no Python, no Node.js
 - **Official MCP SDK** — `github.com/modelcontextprotocol/go-sdk` (maintained by Google + Anthropic)
 - **Stdio transport** — works with Claude Desktop, Claude Code, Cursor, etc.
@@ -14,9 +14,9 @@ Built as a reliable replacement for the Python-based Joplin MCP server, which su
 - **Todo filtering** — `find_notes`, `get_notebook_notes`, and `get_tag_notes` all accept `task` (`"todo"` / `"note"`) and `completed` (true / false) filters, implemented via Joplin's native search operators.
 - **Partial note editing** — `patch_note` applies surgical edits (text replacement, line operations, insert/append) without rewriting the entire body, saving tokens on large notes.
 
-## Tools (23)
+## Tools (24)
 
-### Notes (7)
+### Notes (8)
 | Tool | Description |
 |------|-------------|
 | `find_notes` | Full-text search over notes. Use `*` to list all. Supports `task` and `completed` filters. |
@@ -24,6 +24,7 @@ Built as a reliable replacement for the Python-based Joplin MCP server, which su
 | `create_note` | Create a note; target notebook by `parent_id` or `notebook_name` |
 | `update_note` | Update note properties (title, body, todo state, move by id or name). Replaces entire body. |
 | `patch_note` | Apply partial edits to a note's body via text / line / position operations (see below) |
+| `grep_note` | Search inside a note's body; returns matching lines with line numbers and surrounding context |
 | `delete_note` | Delete note (trash or permanent) |
 | `get_tags_by_note` | Get all tags attached to a note |
 
@@ -258,6 +259,7 @@ joplin-mcp-go/
     ├── util.go              # Small internal utilities
     ├── notes.go             # find/get/create/update/delete_note, get_tags_by_note
     ├── patch.go             # patch_note (partial body editing)
+    ├── grep.go              # grep_note (search inside a note's body)
     ├── folders.go           # list/resolve/get/create/update/delete_notebook,
     │                        # get_notebook_notes
     ├── tags.go              # list/resolve/create/delete_tag, tag/untag_note,
