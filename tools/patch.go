@@ -14,13 +14,36 @@ import (
 // ---- Input types ----
 
 // PatchOperation represents a single edit operation on a note's body.
+// Exactly one operation type should be specified per entry.
+//
+// Text-based operations (anchor text must appear exactly once by default;
+// set count to allow multiple):
+//   - replace:       find old text and replace with new text
+//   - delete:        remove target text
+//   - insert_before: insert content before anchor text
+//   - insert_after:  insert content after anchor text
+//
+// The count field controls how many occurrences to act on:
+//   - 0 (default):  exactly 1 (text must be unique; error if multiple matches)
+//   - N > 1:        act on the first N occurrences (error if fewer than N exist)
+//   - -1:           act on ALL occurrences
+//
+// Position-based operations:
+//   - prepend: add content to the beginning of the body
+//   - append:  add content to the end of the body
+//
+// Line-based operations (1-based inclusive line numbers):
+//   - replace_lines:  replace a range of lines with new content
+//   - insert_at_line: insert content before a specific line
+//   - delete_lines:   delete a range of lines
 type PatchOperation struct {
 	Op      string `json:"op" jsonschema:"Operation type: replace / delete / prepend / append / insert_before / insert_after / replace_lines / insert_at_line / delete_lines"`
-	Old     string `json:"old,omitempty" jsonschema:"For replace: the exact text to find (must appear exactly once in the body)"`
+	Old     string `json:"old,omitempty" jsonschema:"For replace: the exact text to find"`
 	New     string `json:"new,omitempty" jsonschema:"For replace: the replacement text"`
-	Target  string `json:"target,omitempty" jsonschema:"For delete: the exact text to remove (must appear exactly once)"`
-	Anchor  string `json:"anchor,omitempty" jsonschema:"For insert_before / insert_after: the text to locate (must appear exactly once)"`
+	Target  string `json:"target,omitempty" jsonschema:"For delete: the exact text to remove"`
+	Anchor  string `json:"anchor,omitempty" jsonschema:"For insert_before / insert_after: the text to locate"`
 	Content string `json:"content,omitempty" jsonschema:"For prepend / append / insert_before / insert_after / replace_lines / insert_at_line: the text to insert"`
+	Count   int    `json:"count,omitempty" jsonschema:"For text-based ops: max occurrences to act on. Default 1 (must be unique). Use -1 for all occurrences."`
 	Start   int    `json:"start,omitempty" jsonschema:"For replace_lines / delete_lines: start line number (1-based inclusive)"`
 	End     int    `json:"end,omitempty" jsonschema:"For replace_lines / delete_lines: end line number (1-based inclusive)"`
 	Line    int    `json:"line,omitempty" jsonschema:"For insert_at_line: insert content before this line number (1-based). Use 1 for top; a value beyond the last line appends."`
@@ -34,6 +57,41 @@ type PatchNoteInput struct {
 
 // ---- Patch engine ----
 
+// effectiveCount returns the max occurrences to act on for text-based operations.
+// Default is 1 (require unique match). -1 means all occurrences.
+func effectiveCount(op PatchOperation) int {
+	if op.Count == 0 {
+		return 1
+	}
+	return op.Count
+}
+
+// validateTextMatch checks that the needle appears in the body and that the
+// occurrence count is compatible with the requested max count.
+// Returns the actual number of occurrences found.
+func validateTextMatch(body, needle, opName string, maxCount int) (int, error) {
+	found := strings.Count(body, needle)
+	if found == 0 {
+		return 0, fmt.Errorf("%s: text not found in note body", opName)
+	}
+	if maxCount == 1 && found > 1 {
+		return found, fmt.Errorf("%s: text appears %d times in note body; it must be unique (set count to allow multiple). Include more surrounding context to disambiguate", opName, found)
+	}
+	if maxCount > 1 && found < maxCount {
+		return found, fmt.Errorf("%s: text appears %d times but count=%d was requested; only %d available", opName, found, maxCount, found)
+	}
+	return found, nil
+}
+
+// replaceN replaces up to n occurrences of old with new in s.
+// If n == -1, replaces all occurrences.
+func replaceN(s, old, new string, n int) string {
+	if n == -1 {
+		return strings.ReplaceAll(s, old, new)
+	}
+	return strings.Replace(s, old, new, n)
+}
+
 // applyOperation applies a single PatchOperation to the body and returns the modified body.
 func applyOperation(body string, op PatchOperation) (string, error) {
 	switch strings.ToLower(op.Op) {
@@ -42,27 +100,21 @@ func applyOperation(body string, op PatchOperation) (string, error) {
 		if op.Old == "" {
 			return "", fmt.Errorf("replace: 'old' must not be empty")
 		}
-		count := strings.Count(body, op.Old)
-		if count == 0 {
-			return "", fmt.Errorf("replace: 'old' text not found in note body")
+		maxCount := effectiveCount(op)
+		if _, err := validateTextMatch(body, op.Old, "replace", maxCount); err != nil {
+			return "", err
 		}
-		if count > 1 {
-			return "", fmt.Errorf("replace: 'old' text appears %d times in note body; it must be unique. Include more surrounding context to disambiguate", count)
-		}
-		return strings.Replace(body, op.Old, op.New, 1), nil
+		return replaceN(body, op.Old, op.New, maxCount), nil
 
 	case "delete":
 		if op.Target == "" {
 			return "", fmt.Errorf("delete: 'target' must not be empty")
 		}
-		count := strings.Count(body, op.Target)
-		if count == 0 {
-			return "", fmt.Errorf("delete: 'target' text not found in note body")
+		maxCount := effectiveCount(op)
+		if _, err := validateTextMatch(body, op.Target, "delete", maxCount); err != nil {
+			return "", err
 		}
-		if count > 1 {
-			return "", fmt.Errorf("delete: 'target' text appears %d times in note body; it must be unique. Include more surrounding context to disambiguate", count)
-		}
-		return strings.Replace(body, op.Target, "", 1), nil
+		return replaceN(body, op.Target, "", maxCount), nil
 
 	case "prepend":
 		if op.Content == "" {
@@ -89,14 +141,11 @@ func applyOperation(body string, op PatchOperation) (string, error) {
 		if op.Content == "" {
 			return "", fmt.Errorf("insert_before: 'content' must not be empty")
 		}
-		count := strings.Count(body, op.Anchor)
-		if count == 0 {
-			return "", fmt.Errorf("insert_before: 'anchor' text not found in note body")
+		maxCount := effectiveCount(op)
+		if _, err := validateTextMatch(body, op.Anchor, "insert_before", maxCount); err != nil {
+			return "", err
 		}
-		if count > 1 {
-			return "", fmt.Errorf("insert_before: 'anchor' text appears %d times in note body; it must be unique. Include more surrounding context to disambiguate", count)
-		}
-		return strings.Replace(body, op.Anchor, op.Content+op.Anchor, 1), nil
+		return replaceN(body, op.Anchor, op.Content+op.Anchor, maxCount), nil
 
 	case "insert_after":
 		if op.Anchor == "" {
@@ -105,14 +154,11 @@ func applyOperation(body string, op PatchOperation) (string, error) {
 		if op.Content == "" {
 			return "", fmt.Errorf("insert_after: 'content' must not be empty")
 		}
-		count := strings.Count(body, op.Anchor)
-		if count == 0 {
-			return "", fmt.Errorf("insert_after: 'anchor' text not found in note body")
+		maxCount := effectiveCount(op)
+		if _, err := validateTextMatch(body, op.Anchor, "insert_after", maxCount); err != nil {
+			return "", err
 		}
-		if count > 1 {
-			return "", fmt.Errorf("insert_after: 'anchor' text appears %d times in note body; it must be unique. Include more surrounding context to disambiguate", count)
-		}
-		return strings.Replace(body, op.Anchor, op.Anchor+op.Content, 1), nil
+		return replaceN(body, op.Anchor, op.Anchor+op.Content, maxCount), nil
 
 	case "replace_lines":
 		if op.Start < 1 {
@@ -202,11 +248,15 @@ func registerPatchTool(server *mcp.Server, client *joplin.Client) {
 			"The server fetches the current body / applies your operations in order / then saves the result. " +
 			"This is much cheaper than update_note for small edits on large notes. " +
 			"Three families of operations are available:\n\n" +
-			"Text-based (anchor must appear exactly once):\n" +
+			"Text-based (by default anchor must appear exactly once; set count for multiple):\n" +
 			"  replace  — find 'old' text and swap it with 'new'\n" +
 			"  delete   — remove 'target' text\n" +
 			"  insert_before — insert 'content' immediately before 'anchor'\n" +
 			"  insert_after  — insert 'content' immediately after 'anchor'\n\n" +
+			"  The 'count' field controls how many occurrences to act on:\n" +
+			"    omit or 0 → default 1 (text must be unique; error if multiple matches)\n" +
+			"    N > 1     → act on the first N occurrences (error if fewer than N exist)\n" +
+			"    -1        → act on ALL occurrences\n\n" +
 			"Position-based:\n" +
 			"  prepend — add 'content' at the top of the body\n" +
 			"  append  — add 'content' at the bottom of the body\n\n" +
@@ -214,9 +264,7 @@ func registerPatchTool(server *mcp.Server, client *joplin.Client) {
 			"  replace_lines  — replace lines 'start' through 'end' with 'content'\n" +
 			"  insert_at_line — insert 'content' before line 'line'\n" +
 			"  delete_lines   — delete lines 'start' through 'end'\n\n" +
-			"Operations are applied sequentially; each sees the body as modified by the previous one. " +
-			"For text-based ops the anchor text must be unique in the body or the operation fails with " +
-			"the match count so you can add more context and retry.",
+			"Operations are applied sequentially; each sees the body as modified by the previous one.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input PatchNoteInput) (*mcp.CallToolResult, TextResult, error) {
 		if len(input.Operations) == 0 {
 			return nil, TextResult{}, fmt.Errorf("no operations provided")
