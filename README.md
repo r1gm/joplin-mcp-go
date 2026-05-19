@@ -61,14 +61,19 @@ Built as a reliable replacement for the Python-based Joplin MCP server, which su
 
 Three families of operations are available:
 
-**Text-based** (anchor text must appear exactly once in the body):
+**Text-based** (anchor text must appear exactly once by default; set `count` for multiple):
 
 | Operation | Fields | Description |
 |-----------|--------|-------------|
-| `replace` | `old`, `new` | Find `old` text and swap with `new` |
-| `delete` | `target` | Remove `target` text |
-| `insert_before` | `anchor`, `content` | Insert `content` immediately before `anchor` |
-| `insert_after` | `anchor`, `content` | Insert `content` immediately after `anchor` |
+| `replace` | `old`, `new`, `count` | Find `old` text and swap with `new` |
+| `delete` | `target`, `count` | Remove `target` text |
+| `insert_before` | `anchor`, `content`, `count` | Insert `content` immediately before `anchor` |
+| `insert_after` | `anchor`, `content`, `count` | Insert `content` immediately after `anchor` |
+
+The optional `count` field controls how many occurrences to act on:
+- **omit or 0** → default 1 (text must be unique; error if multiple matches)
+- **N > 1** → act on the first N occurrences (error if fewer than N exist)
+- **-1** → act on ALL occurrences
 
 **Position-based:**
 
@@ -85,7 +90,7 @@ Three families of operations are available:
 | `insert_at_line` | `line`, `content` | Insert `content` before line `line` |
 | `delete_lines` | `start`, `end` | Delete lines `start` through `end` |
 
-Operations are applied sequentially — each sees the body as modified by the previous one. For text-based ops, if the anchor text matches zero or more than one location, the operation fails with the match count so you can add more surrounding context and retry.
+Operations are applied sequentially — each sees the body as modified by the previous one. For text-based ops with the default `count` of 1, if the anchor text matches zero or more than one location, the operation fails with the match count so you can add more surrounding context and retry. Set `count` to allow multiple matches.
 
 Example — append a section and fix a typo in one call:
 
