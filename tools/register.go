@@ -19,6 +19,7 @@ type TextResult struct {
 // RegisterAll registers all Joplin tools on the given MCP server.
 func RegisterAll(server *mcp.Server, client *joplin.Client) {
 	registerNoteTools(server, client)
+	registerPatchTool(server, client)
 	registerFolderTools(server, client)
 	registerTagTools(server, client)
 	registerSearchTools(server, client)

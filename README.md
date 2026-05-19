@@ -6,22 +6,24 @@ Built as a reliable replacement for the Python-based Joplin MCP server, which su
 
 ## Features
 
-- **22 tools** covering notes, notebooks, tags, and search
+- **23 tools** covering notes, notebooks, tags, and search
 - **Single binary** — no runtime dependencies, no Python, no Node.js
 - **Official MCP SDK** — `github.com/modelcontextprotocol/go-sdk` (maintained by Google + Anthropic)
 - **Stdio transport** — works with Claude Desktop, Claude Code, Cursor, etc.
 - **LLM-friendly addressing** — tools accept either a Joplin ID or a title/path for notebooks (`"Projects/Work"`) and a title for tags. Ambiguous names return a structured error listing all candidates with their IDs.
 - **Todo filtering** — `find_notes`, `get_notebook_notes`, and `get_tag_notes` all accept `task` (`"todo"` / `"note"`) and `completed` (true / false) filters, implemented via Joplin's native search operators.
+- **Partial note editing** — `patch_note` applies surgical edits (text replacement, line operations, insert/append) without rewriting the entire body, saving tokens on large notes.
 
-## Tools (22)
+## Tools (23)
 
-### Notes (6)
+### Notes (7)
 | Tool | Description |
 |------|-------------|
 | `find_notes` | Full-text search over notes. Use `*` to list all. Supports `task` and `completed` filters. |
 | `get_note` | Get a single note by ID; control returned fields to skip the body when you just need metadata |
 | `create_note` | Create a note; target notebook by `parent_id` or `notebook_name` |
-| `update_note` | Update note properties (title, body, todo state, move by id or name) |
+| `update_note` | Update note properties (title, body, todo state, move by id or name). Replaces entire body. |
+| `patch_note` | Apply partial edits to a note's body via text / line / position operations (see below) |
 | `delete_note` | Delete note (trash or permanent) |
 | `get_tags_by_note` | Get all tags attached to a note |
 
@@ -52,6 +54,50 @@ Built as a reliable replacement for the Python-based Joplin MCP server, which su
 |------|-------------|
 | `search` | General-purpose Joplin search with full query syntax and `type` filter (`note` / `folder` / `tag`) |
 | `ping` | Check if Joplin is running |
+
+## Partial note editing (`patch_note`)
+
+`patch_note` lets you edit a note's body without sending the entire content. The server fetches the current body, applies your operations in order, then saves the result — all in a single tool call.
+
+Three families of operations are available:
+
+**Text-based** (anchor text must appear exactly once in the body):
+
+| Operation | Fields | Description |
+|-----------|--------|-------------|
+| `replace` | `old`, `new` | Find `old` text and swap with `new` |
+| `delete` | `target` | Remove `target` text |
+| `insert_before` | `anchor`, `content` | Insert `content` immediately before `anchor` |
+| `insert_after` | `anchor`, `content` | Insert `content` immediately after `anchor` |
+
+**Position-based:**
+
+| Operation | Fields | Description |
+|-----------|--------|-------------|
+| `prepend` | `content` | Add `content` at the top of the body |
+| `append` | `content` | Add `content` at the bottom of the body |
+
+**Line-based** (1-based inclusive line numbers):
+
+| Operation | Fields | Description |
+|-----------|--------|-------------|
+| `replace_lines` | `start`, `end`, `content` | Replace lines `start` through `end` with `content` |
+| `insert_at_line` | `line`, `content` | Insert `content` before line `line` |
+| `delete_lines` | `start`, `end` | Delete lines `start` through `end` |
+
+Operations are applied sequentially — each sees the body as modified by the previous one. For text-based ops, if the anchor text matches zero or more than one location, the operation fails with the match count so you can add more surrounding context and retry.
+
+Example — append a section and fix a typo in one call:
+
+```json
+{
+  "id": "abc123def456...",
+  "operations": [
+    {"op": "append", "content": "\n## New Section\n\nContent here."},
+    {"op": "replace", "old": "teh old text", "new": "the old text"}
+  ]
+}
+```
 
 ## Query syntax (used by `find_notes` and `search`)
 
@@ -206,6 +252,7 @@ joplin-mcp-go/
     │                        # resolveNotebookArg, resolveTagArg, todoFilter helpers
     ├── util.go              # Small internal utilities
     ├── notes.go             # find/get/create/update/delete_note, get_tags_by_note
+    ├── patch.go             # patch_note (partial body editing)
     ├── folders.go           # list/resolve/get/create/update/delete_notebook,
     │                        # get_notebook_notes
     ├── tags.go              # list/resolve/create/delete_tag, tag/untag_note,
